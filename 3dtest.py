@@ -117,12 +117,11 @@ if face1.dim == 2:
 
 
 ### 法線表示
-# ToDo: 法線ベクトルの表示がおかしい
 offset = face1.centroid
 
 if face1.dim == 3:
     ax.quiver(offset[0], offset[1], offset[2], face1.normal[0], face1.normal[1], face1.normal[2])
 if face1.dim == 2:
-    ax.plot([offset[0], face1.normal[0]], [offset[1], face1.normal[1]], "-", color='b')
+    ax.plot([offset[0], offset[0] + face1.normal[0]], [offset[1], offset[1] + face1.normal[1]], "-", color='b')
 
 plt.show()
