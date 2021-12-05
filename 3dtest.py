@@ -13,9 +13,9 @@ class Facet():
         self.pints_id = _id_list
         self.edge = self.set_edge()
         #self.normal = self.calc_normal(_points)
-        self.normal = self.calc_normal4D(_points)
+        self.normal = self.calc_normal4D()
 
-        self.centroid = self.calc_centroid(_points)
+        self.centroid = self.calc_centroid()
 
     def calc_normal4D(self):
         A = np.array([self.vertices[i] for i in sorted(self.pints_id)])
@@ -82,8 +82,8 @@ class Facet():
 
         return edge
 
-    def calc_centroid(self, _points):
-        A = [_points[i] for i in sorted(self.pints_id)]
+    def calc_centroid(self):
+        A = [self.vertices[i] for i in sorted(self.pints_id)]
         x = (A[0][0] +A[1][0]+A[2][0]) / 3.0
         y = (A[0][1] +A[1][1]+A[2][1]) / 3.0
         z = (A[0][2] +A[1][2]+A[2][2]) / 3.0
