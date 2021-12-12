@@ -14,9 +14,10 @@ class Facet():
 
         self.set_ridge()
 
+    # ToDo: 2D 以外にも対応させたい
     def calc_normal(self, _points):
         A = np.array([_points[i] for i in sorted(self.points_id)])
-        x = np.dot(np.linalg.inv(A), np.ones(self.dim))         # pinv である必要はない？
+        x = np.dot(np.linalg.inv(A), np.ones(self.dim))
         x = x / np.linalg.norm(x)
  
         p0 = _points[self.points_id[0]]
@@ -26,7 +27,7 @@ class Facet():
 
         u1 = np.array(p1) - np.array(p0)
 
-        print("normal(inv): {} dot: {}".format(x, np.round(np.dot(u1, x), 3)))
+        # print("normal(inv): {} dot: {}".format(x, np.round(np.dot(u1, x), 3)))
 
         return x
 
