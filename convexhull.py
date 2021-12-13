@@ -31,16 +31,18 @@ class QuickHull():
 
 
     def calc_centroid(self, _facets):
-        _ridge = []
+        _vertexs = []
         _centroid = np.array([0.0 for i in range(self.dim)])
+
+        #頂点リスト作成
         for f in _facets:
-            _ridge.extend(f.ridge)
+            _vertexs.extend(f.ridge)
 
-        _uniq_id = list(set(_ridge))
+        _uniq_vertexs = self.get_unique_vertexs_randorder(_vertexs)
 
-        for _id in _uniq_id:
+        for _id in _uniq_vertexs:
             _centroid += np.array(self.points[_id])
-        _centroid /= len(_uniq_id)
+        _centroid /= len(_uniq_vertexs)
 
         self.centroid = _centroid
 
@@ -96,7 +98,7 @@ class QuickHull():
                 
                 dot = np.dot(f.normal, v)
                 if dot >= 0:
-                    print("p{} -> f{}".format(i, j))
+                    # print("p{} -> f{}".format(i, j))
                     f.out_points_id.append(i)   # p を fに割り当てる
                     break
 
@@ -122,21 +124,22 @@ class QuickHull():
         return _max_id
 
     # 最遠の点が超平面の上になるファセットを取り出す
-    def pick_visible_facets(self, _point_id, _facets):
+    def pick_visible_facets_id(self, _point_id, _facets):
         _point = self.points[_point_id]
-        _visible_facets = []
+        _visible_facets_id = []
         for i, f in enumerate(_facets):
             v = np.array(_point) - np.array(self.points[f.points_id[0]])
             dot = np.dot(f.normal, v)
             # print("v: {}, n: {}, nv: {}".format(point, f.normal, dot))
             if dot > 0:
                 print("visible: facet {}".format(i))
-                _visible_facets.append(f)
+                _visible_facets_id.append(i)
 
-        return _visible_facets
+        return _visible_facets_id
 
-    # 重複しない(順不同)ridgeを取得
-    def get_unique_ridges_randorder(self, facets):
+    # 重複の無い(順不同)ridgeを取得
+    # [0, 1, 1, 2] -> [0, 2]
+    def get_only_ridges_randorder(self, facets):
         _all_ridge = []
 
         for f in facets:
@@ -147,10 +150,21 @@ class QuickHull():
         for line in _all_ridge:
             if set(line) not in result:
                 result.append(set(line))
-                _uniq_ridges.append(line)
+                if _all_ridge.count(line) == 1:    # 重複しないもののみ
+                    _uniq_ridges.append(line)
 
         return _uniq_ridges
 
+    # 重複しない(順不同)vertexを取得
+    # [0, 1, 1, 2] -> [0, 1, 2]
+    def get_unique_vertexs_randorder(self, _vertexs):
+        result = []
+        for x in set(_vertexs):
+            result.append(x)
+
+        return result
+
+    # 端のridgeと最遠点から，複数のファセットを作成
     def create_facets(self, _ridge, _point_id):
         fs = []
 
@@ -202,40 +216,51 @@ class QuickHull():
         for f in first_facets:
             if f.out_points_id != []:
                 self.stacks.append(f)
+                print("OUT P: {}".format(f.out_points_id))
             else:
                 self.facets.append(f) # Convex 決定
 
-        print(len(self.stacks))
+        print("STACK NUM: {}".format(len(self.stacks)))
 
-        #### TEST
-        self.stacks = first_facets
-
-
-        ##### ToDo: 可視ファセットを削除するとき，スタックのどのファセットかわからない問題
+        #### ToDo: 可視ファセットを削除するとき，スタックのどのファセットかわからない問題
         # Main
-        # while self.stacks != []:
-        #     _facet = self.stacks.pop()
+        while self.stacks != []:
+            print("STACK: {}".format(len(self.stacks)))
+            
+            # _facet = self.stacks.pop()
+            _facet = self.stacks[0]
 
-        #     farthest_point_id = self.pick_farthest_point_id(_facet)
+            farthest_point_id = self.pick_farthest_point_id(_facet)
+            # print("Fartest: {}".format(farthest_point_id))
 
-        #     visible_facets = self.pick_visible_facets(farthest_point_id, self.stacks)
+            visible_ids = self.pick_visible_facets_id(farthest_point_id, self.stacks)
+            visible_facets = [self.stacks[i] for i in visible_ids]
+            _only_ridges = self.get_only_ridges_randorder(visible_facets)
+            print("Only_ridge: {}".format(_only_ridges))
 
-        #     _uniq_ridges = self.get_unique_ridges_randorder(visible_facets)
+            _new_facets = []
+            for _ridges in _only_ridges:
+                print("TEST: only ridge: {}".format(_ridges))
+                _facets = self.create_facets(_ridges, farthest_point_id)
+                _new_facets.extend(_facets)
 
-        #     _new_facets = []
-        #     for _ridges in _uniq_ridges:
-        #         _new_facet = self.create_facets(_ridges, farthest_point_id)
-        #         _new_facets.append(_new_facet)
+            # full_facets = []
+            # full_facets.extend(self.stacks)
+            # full_facets.extend(self.facets)
+            # full_facets.extend(_new_facets)
+            self.calc_centroid(self.stacks)
+            self.calc_facet_normal_centroid(_new_facets) ## 外側の無いファセット+スタック中のファセット+新たに作ったファセット-visibleファセットに変更予定
+            self.asiign_facets_to_points(_new_facets)
 
-        #     self.calc_centroid(_new_facets)
-        #     self.calc_facet_normal_centroid(_new_facets)
-        #     self.asiign_facets_to_points(_new_facets)
+            for f in _new_facets:
+                if f.out_points_id != []:
+                    self.stacks.append(f)
+                else:
+                    self.facets.append(f)
 
-        #     for f in _new_facets:
-        #         if f.out_points_id != []:
-        #             self.stacks.append(f)
-        #         else:
-        #             self.facets.append(f)
+            # 新たなファセットの元を削除
+            for id in visible_ids:
+                del self.stacks[id]
 
 
 
@@ -281,7 +306,7 @@ for v in points:
 
 
 if body.dim == 2:
-    for f in body.stacks:
+    for f in body.facets:
         line_x = [body.points[pid][0] for pid in f.ridge]
         line_y = [body.points[pid][1] for pid in f.ridge]
         ax.plot(line_x, line_y, "-", color='k')
@@ -291,7 +316,7 @@ if body.dim == 2:
 # if body.dim == 3:
 #     ax.quiver(offset[0], offset[1], offset[2], face.normal[0], face.normal[1], face.normal[2])
 if body.dim == 2:
-    for f in body.stacks:
+    for f in body.facets:
         centroid = np.array([0.0, 0.0])
         for pid in f.points_id:
             centroid += np.array(body.points[pid])
