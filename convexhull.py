@@ -228,7 +228,7 @@ class QuickHull():
             print("STACK: {}".format(len(self.stacks)))
             
             # _facet = self.stacks.pop()
-            _facet = self.stacks[0]
+            _facet = self.stacks[-1]
 
             farthest_point_id = self.pick_farthest_point_id(_facet)
             # print("Fartest: {}".format(farthest_point_id))
@@ -276,6 +276,7 @@ rd.seed(seed)
 # rd.seed(102)
 # rd.seed(282)
 # rd.seed(82) # Err "e:\repositories\convex-hull-py\facet.py", line 18, in calc_normal
+# rd.seed(82) # Err IndexError: list assignment index out of range
 print("seed: {}".format(seed))
 
 facets_stacks_id = []
