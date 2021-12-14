@@ -2,6 +2,7 @@ import re
 import numpy as np
 import numpy.random as rd
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
 import sympy
 
@@ -201,6 +202,77 @@ class QuickHull():
                 # out_pointsの点のみを扱えば問題ない
                 # del self.points[i]
 
+    def make_hull_step(self, _facet):
+        farthest_point_id = self.pick_farthest_point_id(_facet)
+
+        visible_ids = self.pick_visible_facets_id(farthest_point_id, self.stacks)
+        visible_facets = [self.stacks[i] for i in visible_ids]
+        _only_ridges = self.get_only_ridges_randorder(visible_facets)
+
+        _new_facets = []
+        for _ridges in _only_ridges:
+            _facets = self.create_facets(_ridges, farthest_point_id)
+            _new_facets.extend(_facets)
+
+        # full_facets = []
+        # full_facets.extend(self.stacks)
+        # full_facets.extend(self.facets)
+        # full_facets.extend(_new_facets)
+        self.calc_centroid(self.stacks)
+        self.calc_facet_normal_centroid(_new_facets) ## 外側の無いファセット+スタック中のファセット+新たに作ったファセット-visibleファセットに変更予定
+        self.asiign_facets_to_points(_new_facets)
+
+        for f in _new_facets:
+            if f.out_points_id != []:
+                self.stacks.append(f)
+            else:
+                self.facets.append(f)
+
+        # 新たなファセットの元を削除
+        for id in visible_ids:
+            print("DEL ID: {}".format(id))
+            del self.stacks[id]
+
+    def make_hull(self):
+        #### ToDo: 可視ファセットを削除するとき，スタックのどのファセットかわからない問題
+        # Main
+        while self.stacks != []:
+            print("STACK: {}".format(len(self.stacks)))
+            
+            # _facet = self.stacks.pop()
+            _facet = self.stacks[-1]
+
+            self.make_hull_step(_facet)
+
+            # farthest_point_id = self.pick_farthest_point_id(_facet)
+
+            # visible_ids = self.pick_visible_facets_id(farthest_point_id, self.stacks)
+            # visible_facets = [self.stacks[i] for i in visible_ids]
+            # _only_ridges = self.get_only_ridges_randorder(visible_facets)
+
+            # _new_facets = []
+            # for _ridges in _only_ridges:
+            #     _facets = self.create_facets(_ridges, farthest_point_id)
+            #     _new_facets.extend(_facets)
+
+            # # full_facets = []
+            # # full_facets.extend(self.stacks)
+            # # full_facets.extend(self.facets)
+            # # full_facets.extend(_new_facets)
+            # self.calc_centroid(self.stacks)
+            # self.calc_facet_normal_centroid(_new_facets) ## 外側の無いファセット+スタック中のファセット+新たに作ったファセット-visibleファセットに変更予定
+            # self.asiign_facets_to_points(_new_facets)
+
+            # for f in _new_facets:
+            #     if f.out_points_id != []:
+            #         self.stacks.append(f)
+            #     else:
+            #         self.facets.append(f)
+
+            # # 新たなファセットの元を削除
+            # for id in visible_ids:
+            #     print("DEL ID: {}".format(id))
+            #     del self.stacks[id]
 
     def run(self):
         # First
@@ -222,49 +294,21 @@ class QuickHull():
 
         print("STACK NUM: {}".format(len(self.stacks)))
 
-        #### ToDo: 可視ファセットを削除するとき，スタックのどのファセットかわからない問題
-        # Main
-        while self.stacks != []:
-            print("STACK: {}".format(len(self.stacks)))
-            
-            # _facet = self.stacks.pop()
-            _facet = self.stacks[-1]
-
-            farthest_point_id = self.pick_farthest_point_id(_facet)
-            # print("Fartest: {}".format(farthest_point_id))
-
-            visible_ids = self.pick_visible_facets_id(farthest_point_id, self.stacks)
-            visible_facets = [self.stacks[i] for i in visible_ids]
-            _only_ridges = self.get_only_ridges_randorder(visible_facets)
-            print("Only_ridge: {}".format(_only_ridges))
-
-            _new_facets = []
-            for _ridges in _only_ridges:
-                print("TEST: only ridge: {}".format(_ridges))
-                _facets = self.create_facets(_ridges, farthest_point_id)
-                _new_facets.extend(_facets)
-
-            # full_facets = []
-            # full_facets.extend(self.stacks)
-            # full_facets.extend(self.facets)
-            # full_facets.extend(_new_facets)
-            self.calc_centroid(self.stacks)
-            self.calc_facet_normal_centroid(_new_facets) ## 外側の無いファセット+スタック中のファセット+新たに作ったファセット-visibleファセットに変更予定
-            self.asiign_facets_to_points(_new_facets)
-
-            for f in _new_facets:
-                if f.out_points_id != []:
-                    self.stacks.append(f)
-                else:
-                    self.facets.append(f)
-
-            # 新たなファセットの元を削除
-            for id in visible_ids:
-                del self.stacks[id]
 
 
+def plot_ridge(facets, points, ax, c):
+    facets_line_x = []
+    facets_line_y = []
+    for f in facets:
+        print("Ridge: {}".format(f.ridge))
+        line_x = [points[pid][0] for pid in f.ridge]
+        line_y = [points[pid][1] for pid in f.ridge]
+        facets_line_x.extend(line_x)
+        facets_line_y.extend(line_y)
+    im = ax.plot(facets_line_x, facets_line_y, "-", color=c)
+    return im
 
-N = 10
+N = 30
 D = 2
 
 # ランダム範囲 min <= rnd < max
@@ -285,48 +329,72 @@ visible_set = []
 points = [[(rnd_max-rnd_min)*rd.random() + rnd_min for i in range(D)] for j in range(N)]
 
 
+fig = plt.figure(figsize=plt.figaspect(1.0))
+ax = fig.add_subplot(1,1,1)
+
+ims = []
+
 body = QuickHull(points, 2)
 
 body.run()
 
-
-
-fig = plt.figure(figsize=plt.figaspect(1.0))
-if body.dim == 3:
-    ax = Axes3D(fig)
-if body.dim == 2:
-    ax = fig.add_subplot(1,1,1) # 2D
-
-
 ### 頂点表示
 for v in points:
-    if body.dim == 3:
-        ax.scatter(v[0], v[1], v[2], marker="o", c='r', s=60)
-    if body.dim == 2:
-        ax.scatter(v[0], v[1], marker="o", c='r', s=20)
+    ax.scatter(v[0], v[1], marker="o", c='r', s=20)
+
+### 初回ファセット
+im1 = plot_ridge(body.facets, body.points, ax, 'k')
+im2 = plot_ridge(body.stacks, body.points, ax, 'b')
+ims.append(im1+im2)
 
 
-if body.dim == 2:
-    for f in body.facets:
-        line_x = [body.points[pid][0] for pid in f.ridge]
-        line_y = [body.points[pid][1] for pid in f.ridge]
-        ax.plot(line_x, line_y, "-", color='k')
+
+while body.stacks != []:
+    _facet = body.stacks[-1]
+
+    body.make_hull_step(_facet)
+
+    im1 = plot_ridge(body.facets, body.points, ax, 'k')
+    im2 = plot_ridge(body.stacks, body.points, ax, 'b')
+    ims.append(im1+im2)
+
+
+# fig = plt.figure(figsize=plt.figaspect(1.0))
+# if body.dim == 3:
+#     ax = Axes3D(fig)
+# if body.dim == 2:
+#     ax = fig.add_subplot(1,1,1) # 2D
+
+
+# ### 頂点表示
+# for v in points:
+#     if body.dim == 3:
+#         ax.scatter(v[0], v[1], v[2], marker="o", c='r', s=60)
+#     if body.dim == 2:
+#         ax.scatter(v[0], v[1], marker="o", c='r', s=20)
+
+
+# if body.dim == 2:
+#     for f in body.facets:
+#         line_x = [body.points[pid][0] for pid in f.ridge]
+#         line_y = [body.points[pid][1] for pid in f.ridge]
+#         ax.plot(line_x, line_y, "-", color='k')
 
 
 # ### 法線表示
 # if body.dim == 3:
 #     ax.quiver(offset[0], offset[1], offset[2], face.normal[0], face.normal[1], face.normal[2])
-if body.dim == 2:
-    for f in body.facets:
-        centroid = np.array([0.0, 0.0])
-        for pid in f.points_id:
-            centroid += np.array(body.points[pid])
-        offset = centroid / 2.0
-        ax.plot([offset[0], offset[0] + f.normal[0]], [offset[1], offset[1] + f.normal[1]], "-", color='b')
+# if body.dim == 2:
+#     for f in body.facets:
+#         centroid = np.array([0.0, 0.0])
+#         for pid in f.points_id:
+#             centroid += np.array(body.points[pid])
+#         offset = centroid / 2.0
+#         ax.plot([offset[0], offset[0] + f.normal[0]], [offset[1], offset[1] + f.normal[1]], "-", color='b')
 
 # 重心
-if body.dim == 2:
-    ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
+# if body.dim == 2:
+#     ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
 
 # ### 最も遠い頂点
 # if body.dim == 2:
@@ -334,5 +402,7 @@ if body.dim == 2:
 
 plt.xlim([-10, 10])
 plt.ylim([-10, 10])
+
+ani = animation.ArtistAnimation(fig, ims, interval=1000)
 
 plt.show()
