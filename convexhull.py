@@ -4,20 +4,8 @@ import numpy.random as rd
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
-import sympy
-
-import copy
 
 import facet
-
-
-###     # 法線ベクトルは原点を中心としてる
-### 法線ベクトルの向きは，重心よりも外を向くようにする
-### そのため，simplexの重心を知る必要がある
-
-
-
-
 
 class QuickHull():
     def __init__(self, _points, _dim):
@@ -28,8 +16,12 @@ class QuickHull():
 
         self.centroid = [0.0 for i in range(self.dim)]
 
-        # self.asiign_facets_to_points()
+        self.facet_num = 0
 
+    def create_facet(self, _ids, _points):
+        f = facet.Facet(_ids, _points, self.facet_num)
+        self.facet_num += 1
+        return f
 
     def calc_centroid(self, _facets):
         _vertexs = []
@@ -83,7 +75,7 @@ class QuickHull():
                         _ids[j] = i
 
         # 各次元の最大値となる点をシンプレックスの点とする
-        return(facet.Facet(_ids, self.points))
+        return(self.create_facet(_ids, self.points))
 
     # ファセットよりも上になる点を割り当てる
     def asiign_facets_to_points(self, facets):
@@ -128,12 +120,12 @@ class QuickHull():
     def pick_visible_facets_id(self, _point_id, _facets):
         _point = self.points[_point_id]
         _visible_facets_id = []
+        # print("check facets: {}".format(len(_facets)))
         for i, f in enumerate(_facets):
             v = np.array(_point) - np.array(self.points[f.points_id[0]])
             dot = np.dot(f.normal, v)
-            # print("v: {}, n: {}, nv: {}".format(point, f.normal, dot))
+            # print("v: {}, n: {}, nv: {}".format(self.points[f.points_id[0]], f.normal, dot))
             if dot > 0:
-                print("visible: facet {}".format(i))
                 _visible_facets_id.append(i)
 
         return _visible_facets_id
@@ -174,7 +166,7 @@ class QuickHull():
             _points_id.append(r)
             _points_id.append(_point_id)
 
-            f = facet.Facet(_points_id, self.points)
+            f = self.create_facet(_points_id, self.points)
             fs.append(f)
 
         return fs
@@ -214,24 +206,28 @@ class QuickHull():
             _facets = self.create_facets(_ridges, farthest_point_id)
             _new_facets.extend(_facets)
 
-        # full_facets = []
-        # full_facets.extend(self.stacks)
-        # full_facets.extend(self.facets)
-        # full_facets.extend(_new_facets)
-        self.calc_centroid(self.stacks)
-        self.calc_facet_normal_centroid(_new_facets) ## 外側の無いファセット+スタック中のファセット+新たに作ったファセット-visibleファセットに変更予定
+        self.calc_centroid(self.stacks + self.facets + _new_facets)
+        self.calc_facet_normal_centroid(_new_facets)
         self.asiign_facets_to_points(_new_facets)
 
-        for f in _new_facets:
-            if f.out_points_id != []:
-                self.stacks.append(f)
-            else:
-                self.facets.append(f)
+        print("Visible facets id: {}".format([self.stacks[i].id for i in visible_ids]))
+        print("NEW facets id: {}".format([f.id for f in _new_facets]))
 
         # 新たなファセットの元を削除
-        for id in visible_ids:
-            print("DEL ID: {}".format(id))
+        for id in sorted(visible_ids, reverse=True):
+            # print("DEL ID: {}".format(id))
             del self.stacks[id]
+
+
+
+        for i, f in enumerate(_new_facets):
+            if f.out_points_id != []:
+                print("Add stacks: {}".format(f.id))
+                self.stacks.append(f)
+            else:
+                print("Add facets: {}".format(f.id))
+                self.facets.append(f)
+
 
     def make_hull(self):
         #### ToDo: 可視ファセットを削除するとき，スタックのどのファセットかわからない問題
@@ -239,40 +235,9 @@ class QuickHull():
         while self.stacks != []:
             print("STACK: {}".format(len(self.stacks)))
             
-            # _facet = self.stacks.pop()
             _facet = self.stacks[-1]
 
             self.make_hull_step(_facet)
-
-            # farthest_point_id = self.pick_farthest_point_id(_facet)
-
-            # visible_ids = self.pick_visible_facets_id(farthest_point_id, self.stacks)
-            # visible_facets = [self.stacks[i] for i in visible_ids]
-            # _only_ridges = self.get_only_ridges_randorder(visible_facets)
-
-            # _new_facets = []
-            # for _ridges in _only_ridges:
-            #     _facets = self.create_facets(_ridges, farthest_point_id)
-            #     _new_facets.extend(_facets)
-
-            # # full_facets = []
-            # # full_facets.extend(self.stacks)
-            # # full_facets.extend(self.facets)
-            # # full_facets.extend(_new_facets)
-            # self.calc_centroid(self.stacks)
-            # self.calc_facet_normal_centroid(_new_facets) ## 外側の無いファセット+スタック中のファセット+新たに作ったファセット-visibleファセットに変更予定
-            # self.asiign_facets_to_points(_new_facets)
-
-            # for f in _new_facets:
-            #     if f.out_points_id != []:
-            #         self.stacks.append(f)
-            #     else:
-            #         self.facets.append(f)
-
-            # # 新たなファセットの元を削除
-            # for id in visible_ids:
-            #     print("DEL ID: {}".format(id))
-            #     del self.stacks[id]
 
     def run(self):
         # First
@@ -288,7 +253,6 @@ class QuickHull():
         for f in first_facets:
             if f.out_points_id != []:
                 self.stacks.append(f)
-                print("OUT P: {}".format(f.out_points_id))
             else:
                 self.facets.append(f) # Convex 決定
 
@@ -297,16 +261,12 @@ class QuickHull():
 
 
 def plot_ridge(facets, points, ax, c):
-    facets_line_x = []
-    facets_line_y = []
+    ims = []
     for f in facets:
-        print("Ridge: {}".format(f.ridge))
         line_x = [points[pid][0] for pid in f.ridge]
         line_y = [points[pid][1] for pid in f.ridge]
-        facets_line_x.extend(line_x)
-        facets_line_y.extend(line_y)
-    im = ax.plot(facets_line_x, facets_line_y, "-", color=c)
-    return im
+        ims += ax.plot(line_x, line_y, "-", color=c)
+    return ims
 
 N = 30
 D = 2
@@ -320,7 +280,7 @@ rd.seed(seed)
 # rd.seed(102)
 # rd.seed(282)
 # rd.seed(82) # Err "e:\repositories\convex-hull-py\facet.py", line 18, in calc_normal
-# rd.seed(82) # Err IndexError: list assignment index out of range
+rd.seed(190)
 print("seed: {}".format(seed))
 
 facets_stacks_id = []
@@ -343,9 +303,10 @@ for v in points:
     ax.scatter(v[0], v[1], marker="o", c='r', s=20)
 
 ### 初回ファセット
-im1 = plot_ridge(body.facets, body.points, ax, 'k')
-im2 = plot_ridge(body.stacks, body.points, ax, 'b')
-ims.append(im1+im2)
+ims1 = plot_ridge(body.facets, body.points, ax, 'k')
+ims2 = plot_ridge(body.stacks, body.points, ax, 'b')
+imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
+ims.append(ims1+ims2+[imc])
 
 
 
@@ -354,9 +315,10 @@ while body.stacks != []:
 
     body.make_hull_step(_facet)
 
-    im1 = plot_ridge(body.facets, body.points, ax, 'k')
-    im2 = plot_ridge(body.stacks, body.points, ax, 'b')
-    ims.append(im1+im2)
+    ims1 = plot_ridge(body.facets, body.points, ax, 'k')
+    ims2 = plot_ridge(body.stacks, body.points, ax, 'b')
+    imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
+    ims.append(ims1+ims2+[imc])
 
 
 # fig = plt.figure(figsize=plt.figaspect(1.0))

@@ -1,9 +1,7 @@
 import numpy as np
 
 class Facet():
-    # 法線方向の正負のためにconvexからcentroid情報がほしい?
-
-    def __init__(self, _id_list, _points):
+    def __init__(self, _id_list, _points, id=None):
         self.dim = len(_id_list)
         self.points_id = _id_list
 
@@ -11,6 +9,8 @@ class Facet():
         self.normal = self.calc_normal(_points)
 
         self.out_points_id = []
+
+        self.id = id
 
         self.set_ridge()
 
