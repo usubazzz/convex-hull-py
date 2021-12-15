@@ -1,3 +1,3 @@
 # convex-hull-py
 
-<img src="resource/demo.gif" width="400">
+![demo](https://user-images.githubusercontent.com/86150927/146212358-e98ab501-3f3a-463f-b6a9-7e556b69dbfc.gif)
