@@ -280,7 +280,8 @@ rd.seed(seed)
 # rd.seed(102)
 # rd.seed(282)
 # rd.seed(82) # Err "e:\repositories\convex-hull-py\facet.py", line 18, in calc_normal
-rd.seed(190)
+# rd.seed(190)
+rd.seed(150)
 print("seed: {}".format(seed))
 
 facets_stacks_id = []
@@ -366,5 +367,7 @@ plt.xlim([-10, 10])
 plt.ylim([-10, 10])
 
 ani = animation.ArtistAnimation(fig, ims, interval=1000)
+
+ani.save("sample.gif", writer="imagemagick")
 
 plt.show()
