@@ -7,6 +7,9 @@ from mpl_toolkits.mplot3d import Axes3D
 
 import facet
 
+
+### out points を毎回すべて計算してるので，最適化したほうが速度でる
+
 class QuickHull():
     def __init__(self, _points, _dim):
         self.dim = _dim
@@ -158,16 +161,20 @@ class QuickHull():
         return result
 
     # 端のridgeと最遠点から，複数のファセットを作成
+    ### 2D専用になってる
     def create_facets(self, _ridge, _point_id):
         fs = []
 
-        for r in _ridge:
+        print(_ridge)
+
+        for i in range(int(len(_ridge)/(self.dim-1))):
             _points_id = []
-            _points_id.append(r)
+            _points_id.extend(_ridge[i*(self.dim-1):i*(self.dim-1)+(self.dim)-1])
             _points_id.append(_point_id)
 
             f = self.create_facet(_points_id, self.points)
             fs.append(f)
+
 
         return fs
 
@@ -260,7 +267,7 @@ class QuickHull():
 
 
 
-def plot_ridge(facets, points, ax, c):
+def plot_ridge_2D(facets, points, ax, c):
     ims = []
     for f in facets:
         line_x = [points[pid][0] for pid in f.ridge]
@@ -268,8 +275,19 @@ def plot_ridge(facets, points, ax, c):
         ims += ax.plot(line_x, line_y, "-", color=c)
     return ims
 
-N = 30
-D = 2
+def plot_ridge_3D(facets, points, ax, c):
+    ims = []
+    for f in facets:
+        line_x = [points[pid][0] for pid in f.ridge]
+        line_y = [points[pid][1] for pid in f.ridge]
+        line_z = [points[pid][2] for pid in f.ridge]
+        ims += ax.plot(line_x, line_y, line_z, "-", color=c)
+    return ims
+
+
+
+N = 6
+D = 3
 
 # ランダム範囲 min <= rnd < max
 rnd_min = -10
@@ -281,7 +299,8 @@ rd.seed(seed)
 # rd.seed(282)
 # rd.seed(82) # Err "e:\repositories\convex-hull-py\facet.py", line 18, in calc_normal
 # rd.seed(190)
-rd.seed(150)
+# rd.seed(150)
+rd.seed(4)
 print("seed: {}".format(seed))
 
 facets_stacks_id = []
@@ -290,59 +309,63 @@ visible_set = []
 points = [[(rnd_max-rnd_min)*rd.random() + rnd_min for i in range(D)] for j in range(N)]
 
 
-fig = plt.figure(figsize=plt.figaspect(1.0))
-ax = fig.add_subplot(1,1,1)
 
-ims = []
 
-body = QuickHull(points, 2)
+body = QuickHull(points, D)
 
 body.run()
 
+fig = plt.figure(figsize=plt.figaspect(1.0))
+if body.dim == 2:
+    ax = fig.add_subplot(1,1,1)
+if body.dim == 3:
+    ax = Axes3D(fig)
+
+ims = []
+
 ### 頂点表示
-for v in points:
-    ax.scatter(v[0], v[1], marker="o", c='r', s=20)
+if body.dim == 2:
+    for v in points:
+        ax.scatter(v[0], v[1], marker="o", c='r', s=10)
+if body.dim == 3:
+    for v in points:
+        ax.scatter(v[0], v[1], v[2], marker="o", c='r', s=10)
 
 ### 初回ファセット
-ims1 = plot_ridge(body.facets, body.points, ax, 'k')
-ims2 = plot_ridge(body.stacks, body.points, ax, 'b')
-imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
-ims.append(ims1+ims2+[imc])
+if body.dim == 2:
+    ims1 = plot_ridge_2D(body.facets, body.points, ax, 'k')
+    ims2 = plot_ridge_2D(body.stacks, body.points, ax, 'b')
+    imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
+    ims.append(ims1+ims2+[imc])
+if body.dim ==3:
+    ims1 = plot_ridge_3D(body.facets, body.points, ax, 'k')
+    ims2 = plot_ridge_3D(body.stacks, body.points, ax, 'b')
+    imc = ax.scatter(body.centroid[0], body.centroid[1], body.centroid[2], marker="o", c='g', s=60)
+    ims.append(ims1+ims2+[imc])
 
 
+end_count = 5   # 強制終了カウント
 
 while body.stacks != []:
     _facet = body.stacks[-1]
 
     body.make_hull_step(_facet)
 
-    ims1 = plot_ridge(body.facets, body.points, ax, 'k')
-    ims2 = plot_ridge(body.stacks, body.points, ax, 'b')
-    imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
-    ims.append(ims1+ims2+[imc])
+    if body.dim == 2:
+        ims1 = plot_ridge_2D(body.facets, body.points, ax, 'k')
+        ims2 = plot_ridge_2D(body.stacks, body.points, ax, 'b')
+        imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
+        ims.append(ims1+ims2+[imc])
+    if body.dim == 3:
+        ims1 = plot_ridge_3D(body.facets, body.points, ax, 'k')
+        ims2 = plot_ridge_3D(body.stacks, body.points, ax, 'b')
+        imc = ax.scatter(body.centroid[0], body.centroid[1], body.centroid[2], marker="o", c='g', s=60)
+        ims.append(ims1+ims2+[imc])
 
-
-# fig = plt.figure(figsize=plt.figaspect(1.0))
-# if body.dim == 3:
-#     ax = Axes3D(fig)
-# if body.dim == 2:
-#     ax = fig.add_subplot(1,1,1) # 2D
-
-
-# ### 頂点表示
-# for v in points:
-#     if body.dim == 3:
-#         ax.scatter(v[0], v[1], v[2], marker="o", c='r', s=60)
-#     if body.dim == 2:
-#         ax.scatter(v[0], v[1], marker="o", c='r', s=20)
-
-
-# if body.dim == 2:
-#     for f in body.facets:
-#         line_x = [body.points[pid][0] for pid in f.ridge]
-#         line_y = [body.points[pid][1] for pid in f.ridge]
-#         ax.plot(line_x, line_y, "-", color='k')
-
+    if end_count == 0:
+        break
+    else:
+        end_count -= 1
 
 # ### 法線表示
 # if body.dim == 3:
@@ -355,19 +378,12 @@ while body.stacks != []:
 #         offset = centroid / 2.0
 #         ax.plot([offset[0], offset[0] + f.normal[0]], [offset[1], offset[1] + f.normal[1]], "-", color='b')
 
-# 重心
-# if body.dim == 2:
-#     ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
 
-# ### 最も遠い頂点
-# if body.dim == 2:
-#     ax.scatter(points[max_id][0], points[max_id][1], marker="o", c='b', s=60)
-
-plt.xlim([-10, 10])
-plt.ylim([-10, 10])
+plt.xlim([rnd_min, rnd_max])
+plt.ylim([rnd_min, rnd_max])
 
 ani = animation.ArtistAnimation(fig, ims, interval=1000)
 
-ani.save("sample.gif", writer="imagemagick")
+# ani.save("sample.gif", writer="imagemagick")
 
 plt.show()
