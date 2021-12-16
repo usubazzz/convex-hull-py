@@ -32,7 +32,8 @@ class QuickHull():
 
         #頂点リスト作成
         for f in _facets:
-            _vertexs.extend(f.ridge)
+            for r in f.ridge:
+                _vertexs.extend(r)
 
         _uniq_vertexs = self.get_unique_vertexs_randorder(_vertexs)
 
@@ -123,7 +124,7 @@ class QuickHull():
     def pick_visible_facets_id(self, _point_id, _facets):
         _point = self.points[_point_id]
         _visible_facets_id = []
-        # print("check facets: {}".format(len(_facets)))
+        # print("check facets: {}".format([f.id for f in _facets]))
         for i, f in enumerate(_facets):
             v = np.array(_point) - np.array(self.points[f.points_id[0]])
             dot = np.dot(f.normal, v)
@@ -139,15 +140,27 @@ class QuickHull():
         _all_ridge = []
 
         for f in facets:
-            _all_ridge.append(f.ridge)
+            for r in f.ridge:
+                _all_ridge.append(r)
 
+        print("all ridge: {}".format(_all_ridge))
+
+        double_r = []
         result = []
+        for line in _all_ridge:
+            if set(line) in result:
+                double_r.append(set(line))
+            else:
+                result.append(set(line))
+
         _uniq_ridges = []
         for line in _all_ridge:
-            if set(line) not in result:
-                result.append(set(line))
-                if _all_ridge.count(line) == 1:    # 重複しないもののみ
-                    _uniq_ridges.append(line)
+            if set(line) not in double_r:
+                _uniq_ridges.append(line)
+
+        print("uniq")
+        print(_uniq_ridges)
+        print(double_r)
 
         return _uniq_ridges
 
@@ -165,16 +178,14 @@ class QuickHull():
     def create_facets(self, _ridge, _point_id):
         fs = []
 
-        print(_ridge)
-
-        for i in range(int(len(_ridge)/(self.dim-1))):
+        for r in _ridge:
             _points_id = []
-            _points_id.extend(_ridge[i*(self.dim-1):i*(self.dim-1)+(self.dim)-1])
+            _points_id.extend(r)
             _points_id.append(_point_id)
 
+            print("Create points: {}".format(_points_id))
             f = self.create_facet(_points_id, self.points)
             fs.append(f)
-
 
         return fs
 
@@ -202,38 +213,59 @@ class QuickHull():
                 # del self.points[i]
 
     def make_hull_step(self, _facet):
+        print("=======")
+        print("facets id: {}".format([f.id for f in self.facets]))
+        print("stacks id: {}".format([f.id for f in self.stacks]))
+        
         farthest_point_id = self.pick_farthest_point_id(_facet)
 
-        visible_ids = self.pick_visible_facets_id(farthest_point_id, self.stacks)
-        visible_facets = [self.stacks[i] for i in visible_ids]
+        visible_check_facets = self.stacks + self.facets
+        visible_ids = self.pick_visible_facets_id(farthest_point_id, visible_check_facets)
+        visible_facets = [visible_check_facets[i] for i in visible_ids]
+
+        print("Visible facets id: {}".format([visible_check_facets[i].id for i in visible_ids]))
+        print("visivle ridge: {}".format([visible_check_facets[i].ridge for i in visible_ids]))
+
         _only_ridges = self.get_only_ridges_randorder(visible_facets)
 
-        _new_facets = []
-        for _ridges in _only_ridges:
-            _facets = self.create_facets(_ridges, farthest_point_id)
-            _new_facets.extend(_facets)
+  
 
-        self.calc_centroid(self.stacks + self.facets + _new_facets)
+        _new_facets = []
+        _facets = self.create_facets(_only_ridges, farthest_point_id)
+        _new_facets.extend(_facets)
+
+        # self.calc_centroid(self.stacks + self.facets + _new_facets)
+        self.calc_centroid(_new_facets)
         self.calc_facet_normal_centroid(_new_facets)
         self.asiign_facets_to_points(_new_facets)
 
-        print("Visible facets id: {}".format([self.stacks[i].id for i in visible_ids]))
         print("NEW facets id: {}".format([f.id for f in _new_facets]))
 
         # 新たなファセットの元を削除
         for id in sorted(visible_ids, reverse=True):
-            # print("DEL ID: {}".format(id))
-            del self.stacks[id]
+            print("DEL ID: {}".format(visible_check_facets[id].id))
+            del visible_check_facets[id]
 
 
+        self.facets.clear()
+        self.stacks.clear()
+        for f in visible_check_facets:
+            if len(f.out_points_id) > 0:
+                self.stacks.append(f)
+            else:
+                self.facets.append(f)
 
         for i, f in enumerate(_new_facets):
             if f.out_points_id != []:
-                print("Add stacks: {}".format(f.id))
+                # print("Add stacks: {}".format(f.id))
                 self.stacks.append(f)
             else:
-                print("Add facets: {}".format(f.id))
+                # print("Add facets: {}".format(f.id))
                 self.facets.append(f)
+
+        print("-------")
+        print("facets id: {}".format([f.id for f in self.facets]))
+        print("stacks id: {}".format([f.id for f in self.stacks]))
 
 
     def make_hull(self):
@@ -270,23 +302,33 @@ class QuickHull():
 def plot_ridge_2D(facets, points, ax, c):
     ims = []
     for f in facets:
-        line_x = [points[pid][0] for pid in f.ridge]
-        line_y = [points[pid][1] for pid in f.ridge]
+        line_x = [points[pid[0]][0] for pid in f.ridge]
+        line_y = [points[pid[0]][1] for pid in f.ridge]
         ims += ax.plot(line_x, line_y, "-", color=c)
     return ims
 
 def plot_ridge_3D(facets, points, ax, c):
     ims = []
     for f in facets:
-        line_x = [points[pid][0] for pid in f.ridge]
-        line_y = [points[pid][1] for pid in f.ridge]
-        line_z = [points[pid][2] for pid in f.ridge]
-        ims += ax.plot(line_x, line_y, line_z, "-", color=c)
+        for r in f.ridge:
+            line_x = [points[pid][0] for pid in r]
+            line_y = [points[pid][1] for pid in r]
+            line_z = [points[pid][2] for pid in r]
+            ims += ax.plot(line_x, line_y, line_z, "-", color=c)
     return ims
 
+def plot_normal_3D(facets, points, ax, c):
+    ims = []
+    for f in facets:
+        centroid = np.array([0.0, 0.0, 0.0])
+        for pid in f.points_id:
+            centroid += np.array(points[pid])
+        offset = centroid / 3.0
+        ims += ax.plot([offset[0], offset[0] + f.normal[0]], [offset[1], offset[1] + f.normal[1]], [offset[2], offset[2] + f.normal[2]], "-", color=c)
 
+    return ims
 
-N = 6
+N = 30
 D = 3
 
 # ランダム範囲 min <= rnd < max
@@ -300,7 +342,8 @@ rd.seed(seed)
 # rd.seed(82) # Err "e:\repositories\convex-hull-py\facet.py", line 18, in calc_normal
 # rd.seed(190)
 # rd.seed(150)
-rd.seed(4)
+# rd.seed(4)
+rd.seed(5)
 print("seed: {}".format(seed))
 
 facets_stacks_id = []
@@ -340,12 +383,12 @@ if body.dim == 2:
 if body.dim ==3:
     ims1 = plot_ridge_3D(body.facets, body.points, ax, 'k')
     ims2 = plot_ridge_3D(body.stacks, body.points, ax, 'b')
+    ims3 = plot_normal_3D(body.stacks, body.points, ax, 'g')
+    ims4 = plot_normal_3D(body.facets, body.points, ax, 'g')
     imc = ax.scatter(body.centroid[0], body.centroid[1], body.centroid[2], marker="o", c='g', s=60)
-    ims.append(ims1+ims2+[imc])
+    ims.append(ims1+ims2+ims3+ims4+[imc])
 
-
-end_count = 5   # 強制終了カウント
-
+### メインループ
 while body.stacks != []:
     _facet = body.stacks[-1]
 
@@ -359,13 +402,12 @@ while body.stacks != []:
     if body.dim == 3:
         ims1 = plot_ridge_3D(body.facets, body.points, ax, 'k')
         ims2 = plot_ridge_3D(body.stacks, body.points, ax, 'b')
+        ims3 = plot_normal_3D(body.stacks, body.points, ax, 'g')
+        ims4 = plot_normal_3D(body.facets, body.points, ax, 'g')
         imc = ax.scatter(body.centroid[0], body.centroid[1], body.centroid[2], marker="o", c='g', s=60)
-        ims.append(ims1+ims2+[imc])
+        ims.append(ims1+ims2+ims3+ims4+[imc])
 
-    if end_count == 0:
-        break
-    else:
-        end_count -= 1
+print("seed: {}".format(seed))
 
 # ### 法線表示
 # if body.dim == 3:
