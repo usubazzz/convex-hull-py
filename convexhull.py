@@ -1,14 +1,10 @@
-import re
-import numpy as np
-import numpy.random as rd
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from mpl_toolkits.mplot3d import Axes3D
+#!/usr/bin/env python
+# _*_ coding: utf-8 _*_
 
+import numpy as np
 import facet
 
-
-### out points を毎回すべて計算してるので，最適化したほうが速度でる
+### ToDo: out points を毎回すべて計算してるので，最適化したほうが速度でる
 
 class QuickHull():
     def __init__(self, _points, _dim):
@@ -197,20 +193,20 @@ class QuickHull():
             if dot < 0:
                 f.normal *= -1.0
 
-    def delete_inpoint(self, _facets):
+    # def delete_inpoint(self, _facets):
             
-        for i in reversed(range(len(self.points))):
-            _ch_in = True
-            for f in _facets:
-                v = np.array(self.points[i]) - np.array(self.points[f.points_id[0]])
-                dot = np.dot(f.normal, v)
-                if dot >= 0.0:
-                    _ch_in = False
-            if _ch_in:
-                print("IN point: {}".format(i))
-                # 削除したあと，out_pointsに登録してたやつなどどうするのか
-                # out_pointsの点のみを扱えば問題ない
-                # del self.points[i]
+    #     for i in reversed(range(len(self.points))):
+    #         _ch_in = True
+    #         for f in _facets:
+    #             v = np.array(self.points[i]) - np.array(self.points[f.points_id[0]])
+    #             dot = np.dot(f.normal, v)
+    #             if dot >= 0.0:
+    #                 _ch_in = False
+    #         if _ch_in:
+    #             print("IN point: {}".format(i))
+    #             # 削除したあと，out_pointsに登録してたやつなどどうするのか
+    #             # out_pointsの点のみを扱えば問題ない
+    #             # del self.points[i]
 
     def make_hull_step(self, _facet):
         print("=======")
@@ -226,15 +222,12 @@ class QuickHull():
         print("Visible facets id: {}".format([visible_check_facets[i].id for i in visible_ids]))
         print("visivle ridge: {}".format([visible_check_facets[i].ridge for i in visible_ids]))
 
-        _only_ridges = self.get_only_ridges_randorder(visible_facets)
-
-  
+        _only_ridges = self.get_only_ridges_randorder(visible_facets)  
 
         _new_facets = []
         _facets = self.create_facets(_only_ridges, farthest_point_id)
         _new_facets.extend(_facets)
 
-        # self.calc_centroid(self.stacks + self.facets + _new_facets)
         self.calc_centroid(_new_facets)
         self.calc_facet_normal_centroid(_new_facets)
         self.asiign_facets_to_points(_new_facets)
@@ -267,10 +260,7 @@ class QuickHull():
         print("facets id: {}".format([f.id for f in self.facets]))
         print("stacks id: {}".format([f.id for f in self.stacks]))
 
-
     def make_hull(self):
-        #### ToDo: 可視ファセットを削除するとき，スタックのどのファセットかわからない問題
-        # Main
         while self.stacks != []:
             print("STACK: {}".format(len(self.stacks)))
             
@@ -278,13 +268,11 @@ class QuickHull():
 
             self.make_hull_step(_facet)
 
-    def run(self):
-        # First
+    # 初期用のシンプレックスの作成
+    def first_hull(self):
         first_facets = self.generate_first_simplex()
         self.calc_centroid(first_facets)
         self.calc_facet_normal_centroid(first_facets)
-        
-        self.delete_inpoint(first_facets) # 内側の点を計算から除外する, out_pointsを使うならいらない
         
         self.asiign_facets_to_points(first_facets)
 
@@ -295,137 +283,11 @@ class QuickHull():
             else:
                 self.facets.append(f) # Convex 決定
 
-        print("STACK NUM: {}".format(len(self.stacks)))
+    def run(self):
+        # First
+        self.first_hull()
+
+        # Main
+        self.make_hull()
 
 
-
-def plot_ridge_2D(facets, points, ax, c):
-    ims = []
-    for f in facets:
-        line_x = [points[pid[0]][0] for pid in f.ridge]
-        line_y = [points[pid[0]][1] for pid in f.ridge]
-        ims += ax.plot(line_x, line_y, "-", color=c)
-    return ims
-
-def plot_ridge_3D(facets, points, ax, c):
-    ims = []
-    for f in facets:
-        for r in f.ridge:
-            line_x = [points[pid][0] for pid in r]
-            line_y = [points[pid][1] for pid in r]
-            line_z = [points[pid][2] for pid in r]
-            ims += ax.plot(line_x, line_y, line_z, "-", color=c)
-    return ims
-
-def plot_normal_3D(facets, points, ax, c):
-    ims = []
-    for f in facets:
-        centroid = np.array([0.0, 0.0, 0.0])
-        for pid in f.points_id:
-            centroid += np.array(points[pid])
-        offset = centroid / 3.0
-        ims += ax.plot([offset[0], offset[0] + f.normal[0]], [offset[1], offset[1] + f.normal[1]], [offset[2], offset[2] + f.normal[2]], "-", color=c)
-
-    return ims
-
-N = 30
-D = 3
-
-# ランダム範囲 min <= rnd < max
-rnd_min = -10
-rnd_max = 10
-seed = rd.randint(0, 300)
-rd.seed(seed)
-# rd.seed(230)
-# rd.seed(102)
-# rd.seed(282)
-# rd.seed(82) # Err "e:\repositories\convex-hull-py\facet.py", line 18, in calc_normal
-# rd.seed(190)
-# rd.seed(150)
-# rd.seed(4)
-rd.seed(5)
-print("seed: {}".format(seed))
-
-facets_stacks_id = []
-visible_set = []
-
-points = [[(rnd_max-rnd_min)*rd.random() + rnd_min for i in range(D)] for j in range(N)]
-
-
-
-
-body = QuickHull(points, D)
-
-body.run()
-
-fig = plt.figure(figsize=plt.figaspect(1.0))
-if body.dim == 2:
-    ax = fig.add_subplot(1,1,1)
-if body.dim == 3:
-    ax = Axes3D(fig)
-
-ims = []
-
-### 頂点表示
-if body.dim == 2:
-    for v in points:
-        ax.scatter(v[0], v[1], marker="o", c='r', s=10)
-if body.dim == 3:
-    for v in points:
-        ax.scatter(v[0], v[1], v[2], marker="o", c='r', s=10)
-
-### 初回ファセット
-if body.dim == 2:
-    ims1 = plot_ridge_2D(body.facets, body.points, ax, 'k')
-    ims2 = plot_ridge_2D(body.stacks, body.points, ax, 'b')
-    imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
-    ims.append(ims1+ims2+[imc])
-if body.dim ==3:
-    ims1 = plot_ridge_3D(body.facets, body.points, ax, 'k')
-    ims2 = plot_ridge_3D(body.stacks, body.points, ax, 'b')
-    ims3 = plot_normal_3D(body.stacks, body.points, ax, 'g')
-    ims4 = plot_normal_3D(body.facets, body.points, ax, 'g')
-    imc = ax.scatter(body.centroid[0], body.centroid[1], body.centroid[2], marker="o", c='g', s=60)
-    ims.append(ims1+ims2+ims3+ims4+[imc])
-
-### メインループ
-while body.stacks != []:
-    _facet = body.stacks[-1]
-
-    body.make_hull_step(_facet)
-
-    if body.dim == 2:
-        ims1 = plot_ridge_2D(body.facets, body.points, ax, 'k')
-        ims2 = plot_ridge_2D(body.stacks, body.points, ax, 'b')
-        imc = ax.scatter(body.centroid[0], body.centroid[1], marker="o", c='g', s=60)
-        ims.append(ims1+ims2+[imc])
-    if body.dim == 3:
-        ims1 = plot_ridge_3D(body.facets, body.points, ax, 'k')
-        ims2 = plot_ridge_3D(body.stacks, body.points, ax, 'b')
-        ims3 = plot_normal_3D(body.stacks, body.points, ax, 'g')
-        ims4 = plot_normal_3D(body.facets, body.points, ax, 'g')
-        imc = ax.scatter(body.centroid[0], body.centroid[1], body.centroid[2], marker="o", c='g', s=60)
-        ims.append(ims1+ims2+ims3+ims4+[imc])
-
-print("seed: {}".format(seed))
-
-# ### 法線表示
-# if body.dim == 3:
-#     ax.quiver(offset[0], offset[1], offset[2], face.normal[0], face.normal[1], face.normal[2])
-# if body.dim == 2:
-#     for f in body.facets:
-#         centroid = np.array([0.0, 0.0])
-#         for pid in f.points_id:
-#             centroid += np.array(body.points[pid])
-#         offset = centroid / 2.0
-#         ax.plot([offset[0], offset[0] + f.normal[0]], [offset[1], offset[1] + f.normal[1]], "-", color='b')
-
-
-plt.xlim([rnd_min, rnd_max])
-plt.ylim([rnd_min, rnd_max])
-
-ani = animation.ArtistAnimation(fig, ims, interval=1000)
-
-# ani.save("sample.gif", writer="imagemagick")
-
-plt.show()
